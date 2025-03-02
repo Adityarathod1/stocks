@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Table</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Stock Price Data</h1>
+    
+    <label for="symbol">Stock Symbol:</label>
+    <input type="text" id="symbol" value="IRFC.NS">
+
+    <label for="fromDate">From:</label>
+    <input type="date" id="fromDate">
+
+    <label for="toDate">To:</label>
+    <input type="date" id="toDate">
+
+    <button onclick="fetchStockData()">Get Data</button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date (IST)</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Close</th>
+                <th>Change (₹)</th>
+                <th>Change (%)</th>
+                <th>Volume</th>
+            </tr>
+        </thead>
+        <tbody id="stockTableBody"></tbody>
+    </table>
+
+    <script>
+        async function fetchStockData() {
+            const symbol = document.getElementById("symbol").value;
+            const fromDate = document.getElementById("fromDate").value;
+            const toDate = document.getElementById("toDate").value;
+
+            if (!symbol || !fromDate || !toDate) {
+                alert("Please enter stock symbol, from date, and to date.");
+                return;
+            }
+
+            const response = await fetch(`http://localhost:3000/stock/${symbol}?from=${fromDate}&to=${toDate}`);
+            const data = await response.json();
+
+            const tableBody = document.getElementById("stockTableBody");
+            tableBody.innerHTML = ""; // Clear previous data
+
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="8">No data available</td></tr>`;
+                return;
+            }
+
+            data.forEach(stock => {
+                const row = `
+                    <tr>
+                        <td>${stock.date}</td>
+                        <td>${stock.open}</td>
+                        <td>${stock.high}</td>
+                        <td>${stock.low}</td>
+                        <td>${stock.close}</td>
+                        <td>${stock.change}</td>
+                        <td>${stock.changePercentage}</td>
+                        <td>${stock.volume}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+    </script>
+
+</body>
+</html>
