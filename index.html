@@ -72,7 +72,7 @@
                 return;
             }
 
-            const response = await fetch(`http://localhost:3000/stock/${symbol}?from=${fromDate}&to=${toDate}`);
+            const response = await fetch(`http://15.207.170.252:40000/stock/${symbol}?from=${fromDate}&to=${toDate}`);
             const data = await response.json();
 
             const tableBody = document.getElementById("stockTableBody");
