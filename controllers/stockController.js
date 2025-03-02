@@ -1,13 +1,6 @@
-const express = require('express');
 const yahooFinance = require('yahoo-finance2').default;
-const cors = require('cors');
 
-const app = express();
-const PORT = 3000;
-
-app.use(cors());
-
-app.get('/stock/:symbol', async (req, res) => {
+exports.getStockData = async (req, res) => {
     const { symbol } = req.params;
     const { from, to } = req.query;
 
@@ -16,14 +9,13 @@ app.get('/stock/:symbol', async (req, res) => {
     }
 
     try {
-        // Convert 'to' date to a Date object and add one day
         const toDate = new Date(to);
         toDate.setDate(toDate.getDate() + 1);
-        const adjustedTo = toDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        const adjustedTo = toDate.toISOString().split('T')[0];
 
         const result = await yahooFinance.historical(symbol, {
             period1: from,
-            period2: adjustedTo, // Use the modified 'to' date
+            period2: adjustedTo,
             interval: '1d',
         });
 
@@ -57,8 +49,4 @@ app.get('/stock/:symbol', async (req, res) => {
         console.error("Error fetching stock data:", error);
         res.status(500).json({ error: "Failed to fetch stock data" });
     }
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-});
+};
