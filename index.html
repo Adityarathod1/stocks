@@ -1,105 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Price Table</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
         }
-        table {
-            width: 90%;
-            margin: 20px auto;
-            border-collapse: collapse;
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-        th, td {
-            border: 1px solid #ddd;
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input,
+        button {
             padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .loading {
+            display: none;
+            font-size: 18px;
+            color: blue;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
             text-align: center;
         }
+
         th {
             background-color: #4CAF50;
             color: white;
         }
-        input, button {
-            padding: 8px;
-            margin: 5px;
-            font-size: 16px;
+
+        .positive-row {
+            color: green;
+            font-weight: bold;
+        }
+
+        .negative-row {
+            color: red;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .form-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            input,
+            button {
+                width: 90%;
+            }
+
+            table {
+                font-size: 14px;
+            }
+
+            th,
+            td {
+                padding: 8px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <h1>Stock Price Data</h1>
-    
-    <label for="symbol">Stock Symbol:</label>
-    <input type="text" id="symbol" value="IRFC.NS">
 
-    <label for="fromDate">From:</label>
-    <input type="date" id="fromDate">
+    <div class="container">
+        <div class="form-group">
+            <input type="text" id="symbol" value="IRFC.NS" placeholder="Enter stock symbol">
+            <input type="date" id="from">
+            <input type="date" id="to">
+            <button onclick="fetchStockData()">Get Data</button>
+            <button onclick="exportToExcel()">Download Excel</button>
+        </div>
 
-    <label for="toDate">To:</label>
-    <input type="date" id="toDate">
+        <p id="loading" class="loading">Fetching data... Please wait.</p>
+        <p id="error" class="error"></p>
 
-    <button onclick="fetchStockData()">Get Data</button>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Date (IST)</th>
-                <th>Open</th>
-                <th>High</th>
-                <th>Low</th>
-                <th>Close</th>
-                <th>Change (₹)</th>
-                <th>Change (%)</th>
-                <th>Volume</th>
-            </tr>
-        </thead>
-        <tbody id="stockTableBody"></tbody>
-    </table>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date (IST)</th>
+                        <th>Open</th>
+                        <th>High</th>
+                        <th>Low</th>
+                        <th>Close</th>
+                        <th>Change (₹)</th>
+                        <th>Change (%)</th>
+                        <th>Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
+        let stockData = [];
+
         async function fetchStockData() {
             const symbol = document.getElementById("symbol").value;
-            const fromDate = document.getElementById("fromDate").value;
-            const toDate = document.getElementById("toDate").value;
-
-            if (!symbol || !fromDate || !toDate) {
-                alert("Please enter stock symbol, from date, and to date.");
-                return;
-            }
-
-            const response = await fetch(`http://15.207.170.252:40000/stock/${symbol}?from=${fromDate}&to=${toDate}`);
-            const data = await response.json();
-
+            const from = document.getElementById("from").value;
+            const to = document.getElementById("to").value;
+            const loading = document.getElementById("loading");
+            const error = document.getElementById("error");
             const tableBody = document.getElementById("stockTableBody");
-            tableBody.innerHTML = ""; // Clear previous data
 
-            if (data.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="8">No data available</td></tr>`;
+            if (!from || !to) {
+                error.textContent = "⚠️ Please select both from and to dates.";
                 return;
             }
 
-            data.forEach(stock => {
-                const row = `
-                    <tr>
-                        <td>${stock.date}</td>
-                        <td>${stock.open}</td>
-                        <td>${stock.high}</td>
-                        <td>${stock.low}</td>
-                        <td>${stock.close}</td>
-                        <td>${stock.change}</td>
-                        <td>${stock.changePercentage}</td>
-                        <td>${stock.volume}</td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
+            loading.style.display = "block";
+            error.textContent = "";
+            tableBody.innerHTML = "";
+
+            try {
+                const response = await fetch(`http://15.207.170.252:4000/stock/${symbol}?from=${from}&to=${to}`);
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch stock data. Please check the stock symbol and date range.");
+                }
+
+                stockData = await response.json();
+
+                if (stockData.length === 0) {
+                    throw new Error("No data found for the given date range.");
+                }
+
+                stockData.forEach(stock => {
+                    const rowClass = stock.change < 0 ? "negative-row" : "positive-row";
+
+                    const row = `
+                        <tr class="${rowClass}">
+                            <td>${stock.date}</td>
+                            <td>${stock.open}</td>
+                            <td>${stock.high}</td>
+                            <td>${stock.low}</td>
+                            <td>${stock.close}</td>
+                            <td>${stock.change}</td>
+                            <td>${stock.changePercentage}</td>
+                            <td>${stock.volume}</td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                });
+
+            } catch (err) {
+                error.textContent = `⚠️ ${err.message}`;
+            } finally {
+                loading.style.display = "none";
+            }
         }
+
+        function exportToExcel() {
+            if (stockData.length === 0) {
+                alert("⚠️ No data available to export.");
+                return;
+            }
+
+            const from = document.getElementById("from").value;
+            const to = document.getElementById("to").value;
+            const filename = `Stock_Data_${from}_to_${to}.xlsx`;
+
+            const worksheet = XLSX.utils.json_to_sheet([]);
+
+            // Add headers with styling
+            XLSX.utils.sheet_add_aoa(worksheet, [
+                ["Date (IST)", "Open", "High", "Low", "Close", "Change (₹)", "Change (%)", "Volume"]
+            ], { origin: "A1" });
+
+            // Apply styles to the header row
+            const headerStyle = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "4CAF50" } }
+            };
+
+            stockData.forEach((stock, index) => {
+                const rowIndex = index + 2; // Excel rows start from 1, so add 2 to avoid header
+                const rowColor = stock.change < 0 ? "FFCCCC" : "CCFFCC"; // Red for negative, Green for positive
+
+                XLSX.utils.sheet_add_aoa(worksheet, [[
+                    stock.date, stock.open, stock.high, stock.low, stock.close,
+                    stock.change, stock.changePercentage, stock.volume
+                ]], { origin: `A${rowIndex}` });
+
+                // Apply background color to row
+                const range = `A${rowIndex}:H${rowIndex}`;
+                worksheet[range] = worksheet[range] || {};
+                worksheet[range].s = { fill: { fgColor: { rgb: rowColor } } };
+            });
+
+            // Apply header styling to each column
+            const range = XLSX.utils.decode_range(worksheet["!ref"]);
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (worksheet[cellRef]) worksheet[cellRef].s = headerStyle;
+            }
+
+            // Create workbook and export
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Data");
+
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            saveAs(data, filename);
+        }
+
     </script>
 
 </body>
+
 </html>
