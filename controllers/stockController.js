@@ -10,37 +10,44 @@ exports.getStockData = async (req, res) => {
 
     try {
         const toDate = new Date(to);
-        toDate.setDate(toDate.getDate() + 1);
+        toDate.setDate(toDate.getDate() + 1); // Adjust for inclusive range
         const adjustedTo = toDate.toISOString().split('T')[0];
 
-        const result = await yahooFinance.historical(symbol, {
+        // Fetch data using chart() instead of deprecated historical()
+        const result = await yahooFinance.chart(symbol, {
             period1: from,
             period2: adjustedTo,
             interval: '1d',
         });
 
-        if (result.length === 0) {
+        if (!result || !result.timestamp || result.timestamp.length === 0) {
             return res.json([]);
         }
 
-        const formattedData = result.map(entry => {
-            const istDate = new Date(entry.date);
-            istDate.setHours(istDate.getHours() + 5);
+        const formattedData = result.timestamp.map((timestamp, index) => {
+            const istDate = new Date(timestamp * 1000); // Convert Unix timestamp to JS Date
+            istDate.setHours(istDate.getHours() + 5); // Convert UTC to IST
             istDate.setMinutes(istDate.getMinutes() + 30);
             const formattedDate = istDate.toISOString().split('T')[0];
 
-            const priceChange = (entry.close - entry.open).toFixed(2);
-            const percentageChange = ((priceChange / entry.open) * 100).toFixed(2);
+            const open = result.indicators.quote[0].open[index] || 0;
+            const high = result.indicators.quote[0].high[index] || 0;
+            const low = result.indicators.quote[0].low[index] || 0;
+            const close = result.indicators.quote[0].close[index] || 0;
+            const volume = result.indicators.quote[0].volume[index] || 0;
+
+            const priceChange = (close - open).toFixed(2);
+            const percentageChange = ((priceChange / open) * 100).toFixed(2);
 
             return {
                 date: formattedDate,
-                open: entry.open.toFixed(2),
-                high: entry.high.toFixed(2),
-                low: entry.low.toFixed(2),
-                close: entry.close.toFixed(2),
+                open: open.toFixed(2),
+                high: high.toFixed(2),
+                low: low.toFixed(2),
+                close: close.toFixed(2),
                 change: priceChange,
                 changePercentage: `${percentageChange}%`,
-                volume: entry.volume.toLocaleString()
+                volume: volume.toLocaleString()
             };
         });
 
